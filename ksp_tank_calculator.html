@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+   <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Fuel Tank Calculator</title>
+      <link rel="stylesheet" href="js/jquery-ui-1.12.1/jquery-ui.theme.min.css">
+      <link rel="stylesheet" href="js/jquery-ui-1.12.1/jquery-ui.min.css">
+      <link rel="stylesheet" href="js/jquery-ui-1.12.1/jquery-ui.structure.min.css">
+      <link rel="stylesheet" href="css/style.css">
+      <link rel="stylesheet" href="css/opensans-web-font.css">
+      <script src="js/jquery-3.3.1.min.js"></script>
+      <script src="js/jquery-ui-1.12.1/jquery-ui.min.js"></script>
+      <script src="js/resources.min.js"></script>
+      <script src="js/names.min.js"></script>
+   </head>
+   <body>
+      <div>
+         <h1 class="pad">KSP Fuel Tank Calculator</h1>
+         <p></p>
+         <div  class="pad verticalPad border">
+            <!-- <hr></hr> -->
+            <p>
+               <p>
+                  <h4>Enter Total Size of Tank:</h4>
+                  <label for="diameter">Diameter</label>
+                  <input id="diameter" name="value" type="number" value="2.5">
+                  <label for="height">Height</label>
+                  <input id="height" name="value" type="number" value="7.5">
+               </p>
+            </p>
+         </div>
+   </div>
+      <div id="tanks" >
+         <div id="0" class="pad verticalPad border color">
+            <p id="select-tank-type-0">
+               <h4>Select Tank Type:</h4>
+               <p>
+                  <fieldset>
+                     <select name="tank-type-0" id="tank-type-0" index="0">
+                     </select>
+                  </fieldset>
+               </p>
+               <p>
+                  <fieldset>
+                     <select name="volume-type-0" id="volume-type-0" index="0">
+                        <option name="capsule">Capsule</option>
+                        <option name="cylinder">Cylinder</option>
+                        <option name="sphere">Sphere</option>
+                     </select>
+                  </fieldset>
+               </p>
+            </p>
+            <p title="Ratio for KSP LiquidFuel is 0.45 | Oxydizer is 0.55">
+               <label for="ratio-0">Ratio</label>
+               <input id="ratio-0" class="ratio" name="value" type="number" min="0" max="1" value="0" index="0">
+               <label for="resource-amount-0">Resource Amount</label>
+               <input id="resource-amount-0" name="value" type="number" readonly value="0">
+            </p>
+            <p>
+            </p>
+            <div id="slider_0" class="tank-slider" index="0">
+               <div id="tank_0_slider" class="ui-slider-handle"></div>
+            </div>
+         </div>
+      </div>
+      <div class="pad verticalPad">
+         <button type="button" class="add-tank ui-button ui-corner-all">Add Sub-tank</button>
+         <p id="results" class="verticalPad">
+            <label for="total-volume">Total Volume</label>
+            <input id="total-volume" name="value" type="number" readonly value=0>
+            <label for="total-dryMass">Dry Mass</label>
+            <input id="total-dryMass" name="value" type="number" readonly value=0>
+            <label for="total-fuelMass">Fuel Mass</label>
+            <input id="total-fuelMass" name="value" type="number" readonly value=0>
+            <label for="total-mass">Total Mass</label>
+            <input id="total-mass" name="value" type="number" readonly value=0>
+            <label for="dry-cost">Dry Cost</label>
+            <input id="dry-cost" name="value" type="number" readonly value=0>
+            <label for="fuel-cost">Fuel Cost</label>
+            <input id="fuel-cost" name="value" type="number" readonly value=0>
+            <label for="total-cost">Total Cost</label>
+            <input id="total-cost" name="value" type="number" readonly value=0>
+         </p>
+      </div>
+      <div class="verticalPad"></div>
+      <div class="verticalPad"></div>
+      <div class="verticalPad"></div>
+      <div class="verticalPad"></div>
+
+      <script>
+         //globals
+         var masterTank = {
+            radius:0,
+            height:0,
+            tankVolume:0,
+            fuelVolume:0,
+            dryVolume:0, //this is used for dry mass calculations
+            dryMass:0,
+            mass:0,
+            type:"capsule",
+            cost:0
+         };
+         var Mass = {
+            density: 0.001075,
+            cost: 0.1694
+         };
+         var fuelTanks = [
+            {
+               fuel:"LiquidFuel",
+               height:0,
+               tankVolume:0,
+               fuelVolume:0,
+               dryVolume:0, //this is used for dry mass calculations
+               dryMass:0,
+               type:"capsule",
+               fuelCost:0,
+               dryCost:0,
+               tankCost:0,
+               scale:1,
+               id:0
+            }
+         ];
+         //settings
+         var tankPercentage = 0.96;
+         var masterTankPercentage = 0.95195;
+         var kspScale = 0.199813;
+         var kspMassCost = 3;
+
+//functions
+
+         $( function() {
+
+            FuelType('#tank-type-0');
+            AddSlider(0);
+            SelectmenuInit('#volume-type-0', 1);
+            $(document).tooltip();
+            $('#diameter').keyup( function(){
+               MasterTankUpdate();
+            });
+            $('#height').keyup( function(){
+               MasterTankUpdate();
+            });
+            MasterTankUpdate();
+            $('.add-tank').click(function(){
+               AddTank();
+            });
+            RatioInit('#ratio-0');
+
+         } );
+
+         function MasterTankUpdate(type, value){
+            var diameter = $('#diameter').val();
+            var height = $('#height').val();
+            masterTank.radius = diameter * 0.5;
+            masterTank.height = height;
+            TankUpdate();//defaults to true
+            SliderUpdate();
+         }
+
+         function TankUpdate()
+         {
+            //tank.height will most often be the value from range slider position
+            var masterVolume =0;
+            var masterCost =0;
+            var masterDryMass =0;
+            var masterMass =0;
+            var masterDryVolume =0;
+            var isKSP = false;
+            var masterDryCost = 0;
+            var masterFuelCost = 0;
+            var masterTankDryVolume = (Cylinder(masterTank.height) - Cylinder(masterTank.height, true))/fuelTanks.length;
+            for(var i = 0;i<fuelTanks.length;i++){
+               var tank = fuelTanks[i];
+               var id = tank.id;
+               var totalVolume = 0;
+               if(masterTank.height == 0 || masterTank.radius == 0){
+               }else{
+                  totalVolume = TankSwitch(tank.type, tank.height, masterTank.height, masterTank.radius);
+                  totalVolume = (totalVolume > masterTankDryVolume)? totalVolume - masterTankDryVolume : totalVolume;
+               }
+               var scale = 1;
+               if(tank.fuel == 'LiquidFuel'|| 'Oxydizer' || 'Monoprop' || 'ElectricCharge'){
+                  scale = kspScale;
+                  isKSP = true;
+               } //KSP liters are about a 5th the size of real world liters
+               totalVolume = totalVolume * scale;
+               var tankVolume = totalVolume * tankPercentage //scale allows default KSP fuels. Normally it is set to 1
+               var dryVolume = (totalVolume>masterTankDryVolume)? totalVolume - tankVolume + masterTankDryVolume : totalVolume - tankVolume;
+               var dryMass = dryVolume * Mass.density ;
+               var dryCost = dryVolume * Mass.cost ;
+               var fuelCost = tankVolume * crp[tank.fuel].unitCost
+               var fuelMass = tankVolume * crp[tank.fuel].density;
+               masterCost += round(dryCost,0) + round(fuelCost,0);
+               masterVolume += round(tankVolume,0);
+               masterMass += round(dryMass + fuelMass,2);
+               masterDryMass += round(dryMass,2);
+               masterDryVolume += round(dryVolume,0);
+               masterFuelCost += round(fuelCost ,0);
+               masterDryCost += round(dryCost,0);
+//add calculated values to fuelTanks object
+               fuelTanks[i].tankVolume = round(tankVolume,0);
+               fuelTanks[i].dryVolume = round(dryVolume,0);
+               fuelTanks[i].dryMass = round(dryMass,2);
+               fuelTanks[i].dryCost = round(dryCost,0);
+               fuelTanks[i].fuelCost = round(fuelCost,0);
+               console.log('this is the tankVolume: '+tankVolume);
+               console.log('this is the dryMass: '+dryMass);
+               console.log('this is the mass: '+masterMass);
+               console.log('this is the tank.fuel: '+tank.fuel);
+               console.log('this is the crp[tank.fuel].density: '+crp[tank.fuel].density);
+               console.log('this is the fuelMass: '+fuelMass);
+               $('#resource-amount-'+id).val(round(tankVolume,0));
+            }
+            masterTank.cost = round(masterCost,0);
+            masterTank.volume = round(masterVolume,2);
+            masterTank.mass = round(masterMass,2);
+            masterTank.dryMass = round(masterDryMass ,2);
+            masterTank.dryVolume = round(masterDryVolume,2);
+            $('#total-volume').val(round(masterVolume,2));
+            $('#total-cost').val(round(masterCost,0));
+            $('#dry-cost').val(round(masterDryCost,0));
+            $('#fuel-cost').val(round(masterFuelCost,0));
+            $('#total-mass').val(round(masterMass,2));
+            $('#total-fuelMass').val(round(masterMass - masterDryMass,2));
+            $('#total-dryMass').val(masterTank.dryMass);
+         }
+
+         function TankSwitch( type,ratio,height,radius ){
+            var v = 0;
+            switch(type){
+               case 'cylinder':
+                  v = Cylinder(height*ratio);
+               break;
+               case 'sphere':
+                  v = (masterTank.radius > height) ? Sphere(height * ratio * 0.25, 1) : Sphere(radius, ratio);
+               break;
+               case 'capsule':
+                  v = Capsule(height,ratio);
+               break;
+            }
+            return v;
+         }
+
+         function isNumber(n){
+            return typeof(n) != "boolean" && !isNaN(n);
+         }
+
+         function Sphere(adjustedRadius, mult){
+            var volume = 1.3333 * Math.PI * adjustedRadius * Math.pow(masterTank.radius,2) * 1000 * mult;
+            return volume;
+         }
+
+         function Cylinder(height, flag=false){
+            var radius = (flag == false)? masterTank.radius : masterTank.radius * masterTankPercentage;
+            var volume = Math.PI * Math.pow(radius,2) * height * 1000;
+            return volume;
+         }
+
+         function Capsule(height,ratio){
+            // var adjustedRadius = ((masterTank.radius * ratio) > height ) ? height * ratio * 0.5 : masterTank.radius;
+            var adjustedRadius = height * ratio * 0.25;
+            var adjustedHeight = (height * ratio) - (adjustedRadius);
+            var cylinderVolume = Cylinder(adjustedHeight);
+            var sphereVolume = Sphere(adjustedRadius/2, 1);
+            var volume = sphereVolume + cylinderVolume;
+            return volume;
+         }
+
+         function FuelType(id){
+            var html = '';
+            var count = names.length;
+            for(var i = 0; i<count; i++){
+               html += '\t<option value="'+names[i]+'">'+names[i]+'</option>\n';
+            }
+            $(id).html(html);
+            SelectmenuInit(id);
+         }
+
+         function Ratio(value,id){
+            var slider = $( '#slider_'+id );
+            var handle = $( '#tank_'+id+'_slider' );
+            var max = slider.slider('option','max');
+            slider.slider('option','value',value);
+            handle.text(value);
+            SliderUpdate();
+         }
+
+         function RatioInit(selector){
+            $(selector).keypress(function(e){
+               if(e.which == 13){
+                  var v = $(this).val();
+                  var id = $(this).attr('index');
+                  var max = $('#slider_'+id).slider('option','max');
+                  if (v > max) {v = max}
+                  if (v < 0) {v = 0}
+                  $(this).val(v);
+                  Ratio(v,id);
+               }
+            });
+         }
+
+         function SelectmenuInit(id,flag=0){
+
+            if(flag == 1){
+               $(id).selectmenu({
+                  change: function( event, data ){
+                     VolumeSelect(data.item.value, $(this).attr('index'));
+                  }
+               });
+            }else{
+               $(id).selectmenu({
+                  change: function( event, data ){
+                     FuelSelect(data.item.value, $(this).attr('index'));
+                  }
+               });
+            }
+         }
+
+         function VolumeSelect(value,index){
+            for(i=0;i<fuelTanks.length;i++){
+               if(fuelTanks[i].id == index){
+                  fuelTanks[i].type = value.toLowerCase();
+               }
+            }
+            TankUpdate();
+         }
+
+         function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+               var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+               return v.toString(16);
+            });
+         }
+
+         function AddTank(){
+            var tankId = uuidv4();
+            fuelTanks.push
+               ({
+                  fuel:"LiquidFuel",
+                  height:0,
+                  tankVolume:0,
+                  fuelVolume:0,
+                  dryVolume:0, //this is used for dry mass calculations
+                  dryMass:0,
+                  type:"capsule",
+                  fuelCost:0,
+                  dryCost:0,
+                  tankCost:0,
+                  scale:1,
+                  id:tankId
+               });
+            var html = `
+               <div id="`+tankId+`" class="pad verticalPad border color">
+                  <p id="select-tank-type-`+tankId+`">
+                     <h4>Select Tank Type:</h4>
+                     <fieldset>
+                        <select name="tank-type-`+tankId+`" id="tank-type-`+tankId+`" index="`+tankId+`">
+                        </select>
+                     </fieldset>
+                  </p>
+                  <p>
+                     <label for="ratio-`+tankId+`">Ratio</label>
+                     <input id="ratio-`+tankId+`" class="ratio" name="value" min="0" max="1" type="number" value="0" index="`+tankId+`">
+                     <label for="resource-amount-`+tankId+`">Resource Amount</label>
+                     <input id="resource-amount-`+tankId+`" name="value" type="number" readonly value="0">
+                  </p>
+                  <p>
+                     <fieldset>
+                        <select name="volume-type-`+tankId+`" id="volume-type-`+tankId+`" index="`+tankId+`">
+                           <option name="capsule">Capsule</option>
+                           <option name="cylinder">Cylinder</option>
+                           <option name="sphere">Sphere</option>
+                        </select>
+                     </fieldset>
+                  </p>
+                  <div id="slider_`+tankId+`" class="tank-slider" index="`+tankId+`">
+                     <div id="tank_`+tankId+`_slider" class="ui-slider-handle"></div>
+                  </div>
+                  <button type="button" class="remove-tank ui-button ui-corner-all" index="`+tankId+`">Remove Sub-tank</button>
+               </div>
+            `;
+            $('#tanks').append(html);
+            FuelType('#tank-type-'+tankId);
+            AddSlider(tankId);
+            RemoveTankInit();
+            SelectmenuInit('#volume-type-'+tankId, 1);
+            RatioInit('#ratio-'+tankId);
+         }
+
+         function RemoveTankInit (){
+            $('.remove-tank').click(function(){
+               var removeTankId = $(this).attr('index');
+               $('#'+removeTankId).remove();
+               for(i=0;i<fuelTanks.length;i++){
+                  if(fuelTanks[i].id == removeTankId){
+                     fuelTanks.splice(i,1);
+                  }
+               }
+               console.log(fuelTanks);
+            });
+         }
+
+         function AddSlider(id){
+            var handle = $( '#tank_'+id+'_slider');
+            var m = 1;
+            for(i=0;i<fuelTanks.length;i++){
+               if(i > 0){
+                  if(fuelTanks[i].id == id){
+                     var p = fuelTanks[i-1].id;
+                     m = 1 - $( "#slider_"+p ).slider('option','value');
+                  }
+
+               }
+
+            }
+
+            $( "#slider_"+id ).slider({
+               min: 0,
+               max: m,
+               step: 0.01,
+               create: function( event, ui) {
+                  handle.text( 0 );
+                  SliderUpdate();
+               },
+               slide: function( event, ui ) {
+                  handle.text( ui.value );
+                  SliderUpdate();
+               }
+            });
+         }
+
+         function SliderUpdate(){
+            for(i=0;i<fuelTanks.length;i++)
+            {
+               var tank = fuelTanks[i];
+               var id = tank.id;
+               var v = $( '#tank_'+id+'_slider').text();
+               $('#ratio-'+id).val(v);
+               fuelTanks[i].height = v;
+               if(i > 0 ){
+                  var p = fuelTanks[i-1].id;
+                  var max = $('#slider_'+p).slider('option', 'max');
+                  var dif = round( max - $('#tank_'+p+'_slider').text(),2);
+                  $('#slider_'+id).slider('option','max',dif);
+                  if( $( '#tank_'+id+'_slider').text() > dif ) {
+                     $('#slider_'+id).slider('option', 'value', dif); //if this slider handle position less than its new maximum, set the handle to the maximum
+                     $( '#tank_'+id+'_slider').text(dif);
+                     $('#ratio-'+id).val(dif);
+                  }
+               }
+               TankUpdate();
+            }
+
+         }
+
+         function FuelSelect(value,index){
+            for(i=0;i<fuelTanks.length;i++){
+               if(fuelTanks[i].id == index){
+                  fuelTanks[i].fuel = value;//index is determined by index attribute in html
+               }
+            }
+            TankUpdate();
+         }
+
+         function round(number, precision) {
+            var shift = function (number, precision, reverseShift) {
+               if (reverseShift) {
+                  precision = -precision;
+               }
+               var numArray = ("" + number).split("e");
+               return +(numArray[0] + "e" + (numArray[1] ? (+numArray[1] + precision) : precision));
+            };
+            return shift(Math.round(shift(number, precision, false)), precision, true);
+         }
+      </script>
+   </body>
+</html>
