@@ -82,6 +82,22 @@
             <label for="total-cost">Total Cost</label>
             <input id="total-cost" name="value" type="number" readonly value=0>
          </p>
+         <button id="cfgBtn" type="button" class="ui-button ui-corner-all">CFG Output</button>
+      <div id="accordion" class="verticalPad">
+            <pre>
+               <code id="cfg">
+   entryCost = 0
+   cost = 0
+   mass = 0
+
+   RESOURCE
+	{
+		name = LiquidFuel
+		amount = 0
+		maxAmount = 0
+	}
+               </code>
+            </pre>
       </div>
       <div class="verticalPad"></div>
       <div class="verticalPad"></div>
@@ -102,7 +118,8 @@
             cost:0
          };
          var Mass = {
-            density: 0.001075,
+            density: 0.015,
+            //density: 0.001075,
             cost: 0.1694
          };
          var fuelTanks = [
@@ -126,6 +143,7 @@
          var masterTankPercentage = 0.95195;
          var kspScale = 0.199813;
          var kspMassCost = 3;
+         var entryCostMult = 2.5;
 
 //functions
 
@@ -146,13 +164,21 @@
                AddTank();
             });
             RatioInit('#ratio-0');
+            // $('#accordion').accordion({
+            //    active: false,
+            //    disabled: true,
+            //    collapsible: true
+            // });
+            $('#cfgBtn').click(function(){
+               $('#accordion').slideToggle('slow');
+            });
 
          } );
 
          function MasterTankUpdate(type, value){
             var diameter = $('#diameter').val();
             var height = $('#height').val();
-            masterTank.radius = diameter * 0.5;
+            masterTank.radius = diameter * masterTankPercentage * 0.5;
             masterTank.height = height;
             TankUpdate();//defaults to true
             SliderUpdate();
@@ -166,10 +192,8 @@
             var masterDryMass =0;
             var masterMass =0;
             var masterDryVolume =0;
-            var isKSP = false;
             var masterDryCost = 0;
             var masterFuelCost = 0;
-            var masterTankDryVolume = (Cylinder(masterTank.height) - Cylinder(masterTank.height, true))/fuelTanks.length;
             for(var i = 0;i<fuelTanks.length;i++){
                var tank = fuelTanks[i];
                var id = tank.id;
@@ -177,16 +201,14 @@
                if(masterTank.height == 0 || masterTank.radius == 0){
                }else{
                   totalVolume = TankSwitch(tank.type, tank.height, masterTank.height, masterTank.radius);
-                  totalVolume = (totalVolume > masterTankDryVolume)? totalVolume - masterTankDryVolume : totalVolume;
                }
                var scale = 1;
                if(tank.fuel == 'LiquidFuel'|| 'Oxydizer' || 'Monoprop' || 'ElectricCharge'){
                   scale = kspScale;
-                  isKSP = true;
                } //KSP liters are about a 5th the size of real world liters
                totalVolume = totalVolume * scale;
-               var tankVolume = totalVolume * tankPercentage //scale allows default KSP fuels. Normally it is set to 1
-               var dryVolume = (totalVolume>masterTankDryVolume)? totalVolume - tankVolume + masterTankDryVolume : totalVolume - tankVolume;
+               var tankVolume = totalVolume * tankPercentage; //scale allows default KSP fuels. Normally it is set to 1
+               var dryVolume = totalVolume - tankVolume;
                var dryMass = dryVolume * Mass.density ;
                var dryCost = dryVolume * Mass.cost ;
                var fuelCost = tankVolume * crp[tank.fuel].unitCost
@@ -224,6 +246,30 @@
             $('#total-mass').val(round(masterMass,2));
             $('#total-fuelMass').val(round(masterMass - masterDryMass,2));
             $('#total-dryMass').val(masterTank.dryMass);
+            cfg();
+         }
+
+         function cfg(){
+            var data = '';
+            var mass = `
+   mass = `+masterTank.dryMass.toString();
+            var cost = `
+   cost = `+masterTank.cost.toString();
+            var entryCost = `
+   entryCost = `+round(masterTank.cost * entryCostMult,0).toString();
+            data = entryCost + cost + mass;
+            for(var i=0;i<fuelTanks.length;i++){
+               data+=`
+
+   RESOURCE
+   {
+   	name = `+fuelTanks[i].fuel.toString()+`
+   	amount = `+fuelTanks[i].tankVolume.toString()+`
+   	maxAmount = `+fuelTanks[i].tankVolume.toString()+`
+   }
+`;
+            }
+            $('#cfg').html(data);
          }
 
          function TankSwitch( type,ratio,height,radius ){
@@ -252,8 +298,7 @@
          }
 
          function Cylinder(height, flag=false){
-            var radius = (flag == false)? masterTank.radius : masterTank.radius * masterTankPercentage;
-            var volume = Math.PI * Math.pow(radius,2) * height * 1000;
+            var volume = Math.PI * Math.pow(masterTank.radius,2) * height * 1000;
             return volume;
          }
 
@@ -418,7 +463,7 @@
             $( "#slider_"+id ).slider({
                min: 0,
                max: m,
-               step: 0.01,
+               step: 0.0001,
                create: function( event, ui) {
                   handle.text( 0 );
                   SliderUpdate();

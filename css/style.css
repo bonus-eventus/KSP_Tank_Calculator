@@ -477,7 +477,7 @@ input[type=number] {
     outline-width: 2px;
 }
 input[type=number].ratio {
-    width: 3.5em;
+    width: 5em;
     padding:0.5em;
     padding-top:0.25em;
     padding-bottom:0.25em;
@@ -498,4 +498,8 @@ input:read-only[type=number]{
     border-width:1px;
     border-radius: 2px;
     outline:none;
+}
+
+div#accordion{
+   display:none;
 }
