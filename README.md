@@ -1,8 +1,8 @@
 # KSP Tank Calculator
-This is a simple web app for configuring fuel tanks with all Community Resource Pack resources.
+This is a simple browser app for configuring fuel tanks with all Community Resource Pack resources.
 
 # Install
-Simply download the KSP_Tank_Calculator folder anywhere. Open ksp_tank_calculator.html in any web browser (preferably Chrome or Firefox). Enjoy!
+Download the KSP_Tank_Calculator zip file anywhere. Unzip the zip file. Open ksp_tank_calculator.html in any web browser (preferably Chrome or Firefox). Enjoy!
 
 Author: Bonus Eventus
 Copyright: 2018 Bonus Eventus
