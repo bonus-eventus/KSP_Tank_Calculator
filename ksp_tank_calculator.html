@@ -27,6 +27,10 @@
                   <input id="diameter" name="value" type="number" value="2.5">
                   <label for="height">Height</label>
                   <input id="height" name="value" type="number" value="7.5">
+                  <label id="diameter2Label" for="diameter2">Diameter 2</label>
+                  <input id="diameter2" name="value" type="number" value="2.5">
+                  <label for="isCone">Conical</label>
+                  <input type="checkbox" name="isCone" id="isCone">
                </p>
             </p>
          </div>
@@ -107,7 +111,9 @@
       <script>
          //globals
          var masterTank = {
+            isCone:false,
             radius:0,
+            radius2:0,
             height:0,
             tankVolume:0,
             fuelVolume:0,
@@ -156,12 +162,27 @@
             $('#diameter').keyup( function(){
                MasterTankUpdate();
             });
+            $('#diameter2').keyup( function(){
+               MasterTankUpdate();
+            });
             $('#height').keyup( function(){
                MasterTankUpdate();
             });
             MasterTankUpdate();
             $('.add-tank').click(function(){
                AddTank();
+            });
+            $('#isCone').checkboxradio({
+              icon:false
+            });
+            $('#isCone').on('change', function(e){
+              if($(e.target).is(':checked')){
+                masterTank.isCone = true;
+                MasterTankUpdate();
+              }else{
+                masterTank.isCone = false;
+                MasterTankUpdate();
+              }
             });
             RatioInit('#ratio-0');
             // $('#accordion').accordion({
@@ -177,8 +198,17 @@
 
          function MasterTankUpdate(type, value){
             var diameter = $('#diameter').val();
+            var diameter2 = $('#diameter2').val();
+            if(masterTank.isCone == false){
+              $('#diameter2').hide();
+              $('#diameter2Label').hide();
+            }else{
+              $('#diameter2').show();
+              $('#diameter2Label').show();
+            }
             var height = $('#height').val();
             masterTank.radius = diameter * masterTankPercentage * 0.5;
+            masterTank.radius2 = diameter2 * masterTankPercentage * 0.5;
             masterTank.height = height;
             TankUpdate();//defaults to true
             SliderUpdate();
@@ -200,13 +230,15 @@
                var totalVolume = 0;
                if(masterTank.height == 0 || masterTank.radius == 0){
                }else{
-                  totalVolume = TankSwitch(tank.type, tank.height, masterTank.height, masterTank.radius);
+                  totalVolume = TankSwitch(tank.type, tank.height, masterTank.height, masterTank.radius, masterTank.radius2);
                }
                var scale = 1;
-               if(tank.fuel == 'LiquidFuel'|| 'Oxydizer' || 'Monoprop' || 'ElectricCharge'){
+               console.log('this is the totalVolume: '+ totalVolume);
+               if(tank.fuel == 'LiquidFuel'||tank.fuel ==  'Oxidizer' ||tank.fuel ==  'Monoprop' ||tank.fuel ==  'ElectricCharge'){
                   scale = kspScale;
                } //KSP liters are about a 5th the size of real world liters
                totalVolume = totalVolume * scale;
+               console.log('this is the new totalVolume: ' + totalVolume);
                var tankVolume = totalVolume * tankPercentage; //scale allows default KSP fuels. Normally it is set to 1
                var dryVolume = totalVolume - tankVolume;
                var dryMass = dryVolume * Mass.density ;
@@ -272,14 +304,18 @@
             $('#cfg').html(data);
          }
 
-         function TankSwitch( type,ratio,height,radius ){
+         function TankSwitch( type,ratio,height,radius,radius2=0 ){
             var v = 0;
             switch(type){
                case 'cylinder':
-                  v = Cylinder(height*ratio);
+                  v = (masterTank.isCone == false)? Cylinder(height*ratio) : Truncated(height*ratio,radius,radius2);
                break;
                case 'sphere':
-                  v = (masterTank.radius > height) ? Sphere(height * ratio * 0.25, 1) : Sphere(radius, ratio);
+                  if(masterTank.isCone == false){
+                    v = (masterTank.radius > height) ? Sphere(masterTank.radius,height * ratio * 0.25, 1) : Sphere(masterTank.radius,radius, ratio);
+                  }else{
+                    v = (masterTank.radius2 > height) ? Sphere(masterTank.radius2,height * ratio * 0.25, 1) : Sphere(radius2,radius2, ratio);
+                  }
                break;
                case 'capsule':
                   v = Capsule(height,ratio);
@@ -292,9 +328,14 @@
             return typeof(n) != "boolean" && !isNaN(n);
          }
 
-         function Sphere(adjustedRadius, mult){
-            var volume = 1.3333 * Math.PI * adjustedRadius * Math.pow(masterTank.radius,2) * 1000 * mult;
+         function Sphere(radius,adjustedRadius, mult){
+            var volume = 1.3333 * Math.PI * adjustedRadius * Math.pow(radius,2) * 1000 * mult;
             return volume;
+         }
+
+         function Truncated(height,r1,r2){
+           var volume = 0.333333333333 * Math.PI * ((r1 * r1) + (r1 * r2) + (r2 * r2)) * height * 1000;
+           return volume;
          }
 
          function Cylinder(height, flag=false){
@@ -305,9 +346,9 @@
          function Capsule(height,ratio){
             // var adjustedRadius = ((masterTank.radius * ratio) > height ) ? height * ratio * 0.5 : masterTank.radius;
             var adjustedRadius = height * ratio * 0.25;
-            var adjustedHeight = (height * ratio) - (adjustedRadius);
-            var cylinderVolume = Cylinder(adjustedHeight);
-            var sphereVolume = Sphere(adjustedRadius/2, 1);
+            var adjustedHeight = (height * ratio) - adjustedRadius;
+            var cylinderVolume = (masterTank.isCone == false)? Cylinder(adjustedHeight) : Truncated(adjustedHeight,masterTank.radius,masterTank.radius2);
+            var sphereVolume = (masterTank.isCone == false)? Sphere(masterTank.radius,adjustedRadius/2, 1) : (Sphere(masterTank.radius,adjustedRadius/2,1) + Sphere(masterTank.radius2,adjustedRadius/2,1))/2;
             var volume = sphereVolume + cylinderVolume;
             return volume;
          }

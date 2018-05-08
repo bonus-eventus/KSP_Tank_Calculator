@@ -503,3 +503,11 @@ input:read-only[type=number]{
 div#accordion{
    display:none;
 }
+
+#diameter2{
+  display:none;
+}
+
+#diameter2Label{
+  display:none;
+}
