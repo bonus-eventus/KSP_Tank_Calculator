@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
    <head>
@@ -11,7 +12,7 @@
       <link rel="stylesheet" href="css/opensans-web-font.css">
       <script src="js/jquery-3.3.1.min.js"></script>
       <script src="js/jquery-ui-1.12.1/jquery-ui.min.js"></script>
-      <script src="js/resources.min.js"></script>
+      <script src="js/resources.js"></script>
       <script src="js/names.min.js"></script>
    </head>
    <body>
@@ -31,6 +32,7 @@
                   <input id="diameter2" name="value" type="number" value="2.5">
                   <label for="isCone">Conical</label>
                   <input type="checkbox" name="isCone" id="isCone">
+                  <button type="button" id="settings" class="ui-button ui-corner-all">Open Settings</button>
                </p>
             </p>
          </div>
@@ -107,6 +109,47 @@
       <div class="verticalPad"></div>
       <div class="verticalPad"></div>
       <div class="verticalPad"></div>
+      <div id="dialog" title="Settings">
+        <p>
+          <label for="entry-cost-mult">Entry Cost Multiplier</label>
+          <br/>
+          <input id="entry-cost-mult" name="value" type="number" value=2.5>
+          <br/>
+          <br/>
+          <label for="volume-mult">Volume Multiplier</label>
+          <br/>
+          <input id="volume-mult" name="value" type="number" value=1>
+          <br/>
+          <br/>
+          <label for="ksp-volume-mult">KSP Volume Multiplier</label>
+          <br/>
+          <input id="ksp-volume-mult" name="value" type="number" value=0.199813>
+          <br/>
+          <br/>
+          <label for="dry-mass-density">Dry Mass Density</label>
+          <br/>
+          <input id="dry-mass-density" name="value" type="number" value=0.015>
+          <br/>
+          <br/>
+          <label for="dry-mass-cost">Dry Mass Cost</label>
+          <br/>
+          <input id="dry-mass-cost" name="value" type="number" value=0.01694>
+          <br/>
+          <br/>
+          <label for="ksp-dry-mass-cost">KSP Dry Mass Cost</label>
+          <br/>
+          <input id="ksp-dry-mass-cost" name="value" type="number" value=3>
+          <br/>
+          <br/>
+          <label for="dry-mass-volume-percentage">Dry Mass Volume Percentage</label>
+          <br/>
+          <input id="dry-mass-volume-percentage" name="value" type="number" value=0.95195>
+          <br/>
+          <br/>
+          <label for="sub-tank-volume-percentage">Sub Tank Volume Percentage</label>
+          <input id="sub-tank-volume-percentage" name="value" type="number" value=0.96>
+        </p>
+      </div>
 
       <script>
          //globals
@@ -145,6 +188,7 @@
             }
          ];
          //settings
+         var volumeMult = 1;
          var tankPercentage = 0.96;
          var masterTankPercentage = 0.95195;
          var kspScale = 0.199813;
@@ -154,7 +198,34 @@
 //functions
 
          $( function() {
-
+            $('#dialog').dialog({
+              autoOpen: false,
+              resizable: false,
+              height: "auto",
+              width: 400,
+              modal: true,
+              buttons: {
+                "Save": function() {
+                  entryCostMult = $('#entry-cost-mult').val();
+                  volumeMult = $('#volume-mult').val();
+                  kspScale = $('#ksp-volume-mult').val();
+                  Mass.density = $('#dry-mass-density').val();
+                  Mass.cost = $('#dry-mass-cost').val();
+                  kspMassCost = $('#ksp-dry-mass-cost').val();
+                  masterTankPercentage = $('#dry-mass-volume-percentage').val();
+                  tankPercentage = $('#sub-tank-volume-percentage').val();
+                  MasterTankUpdate();
+                  TankUpdate();
+                  $( this ).dialog( "close" );
+                },
+                Cancel: function() {
+                  $( this ).dialog( "close" );
+                }
+              }
+            });
+            $( "#settings" ).button().on( "click", function() {
+              $('#dialog').dialog( "open" );
+            });
             FuelType('#tank-type-0');
             AddSlider(0);
             SelectmenuInit('#volume-type-0', 1);
@@ -234,9 +305,12 @@
                }
                var scale = 1;
                console.log('this is the totalVolume: '+ totalVolume);
-               if(tank.fuel == 'LiquidFuel'||tank.fuel ==  'Oxidizer' ||tank.fuel ==  'Monoprop' ||tank.fuel ==  'ElectricCharge'){
+               if(tank.fuel == 'LiquidFuel'||tank.fuel ==  'Oxidizer' ||tank.fuel ==  'MonoPropellant' ||tank.fuel ==  'ElectricCharge' || tank.fuel == 'XenonGas' || tank.fuel == 'SolidFuel'){
                   scale = kspScale;
                } //KSP liters are about a 5th the size of real world liters
+               else{
+                 scale = volumeMult;
+               }
                totalVolume = totalVolume * scale;
                console.log('this is the new totalVolume: ' + totalVolume);
                var tankVolume = totalVolume * tankPercentage; //scale allows default KSP fuels. Normally it is set to 1
